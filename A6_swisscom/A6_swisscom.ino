@@ -17,11 +17,8 @@ SoftwareSerial A6board (10, 3);
 
 char end_c[2];
 
-byte ix = 0;
-
-
 void setup() {
-  A6board.begin(115200);   // the GPRS baud rate
+  A6board.begin(A6baud);   // the GPRS baud rate
   Serial.begin(115200);    // the GPRS baud rate
   // ctrlZ String definition
   end_c[0] = 0x1a;
@@ -30,9 +27,9 @@ void setup() {
 
   pinMode(RST, OUTPUT);
   digitalWrite(RST, HIGH);
-  delay(1000);
+  delay(5000);
   digitalWrite(RST, LOW);
-  delay(1000);
+  delay(500);
   if (A6begin() != OK) {
     Serial.println("Error");
     while (1 == 1);
@@ -221,9 +218,7 @@ byte A6command(String command, String response1, String response2, int timeOut, 
   byte count = 0;
   while (count < repetitions && returnValue != OK) {
     A6board.println(command);
-    ix++;
-    Serial.print(ix);
-    Serial.print(" command: ");
+    Serial.print("Command: ");
     Serial.println(command);
     if (A6waitFor(response1, response2, timeOut) == OK) {
       //     Serial.println("OK");
@@ -260,17 +255,16 @@ void A6input() {
 
 
 bool A6begin() {
-  A6board.begin(A6baud);
-  A6board.println("AT+CSQ");
-  byte hi = A6waitFor("99", "yy", 1500);
+  A6board.println("AT+CREG?");
+  byte hi = A6waitFor("1,", "5,", 1500);  // 1: registered, home network ; 5: registered, roaming
   while ( hi != OK) {
-    A6board.println("AT+CSQ");
-    hi = A6waitFor("99", "yy", 1500);
+    A6board.println("AT+CREG?");
+    hi = A6waitFor("1,", "5,", 1500);
   }
-  A6command("AT+CREG?", "OK", "yy", 5000, 2);
-  if (A6command("AT&F0", "OK", "yy", 5000, 2) == OK) {
-    if (A6command("ATE0", "OK", "yy", 5000, 2) == OK) {
-      if (A6command("AT+CMEE=2", "OK", "yy", 5000, 2) == OK) return OK;
+
+  if (A6command("AT&F0", "OK", "yy", 5000, 2) == OK) {   // Reset to factory settings
+    if (A6command("ATE0", "OK", "yy", 5000, 2) == OK) {  // disable Echo
+      if (A6command("AT+CMEE=2", "OK", "yy", 5000, 2) == OK) return OK;  // enable better error messages
       else return NOTOK;
     }
   }
@@ -283,7 +277,7 @@ void ShowSerialData()
     Serial.println(A6board.readStringUntil('\n'));
 }
 
-String A6read () {
+String A6read() {
   String reply = "";
   if (A6board.available())  {
     reply = A6board.readString();
